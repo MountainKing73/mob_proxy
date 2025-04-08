@@ -5,7 +5,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
 
-const COIN_ADDRESS: &str = "7YWHMfk9JZe0LM0g1ZauHuiSxhI";
+const COIN_ADDRESS: &str = "${1}7YWHMfk9JZe0LM0g1ZauHuiSxhI${3}";
 
 pub async fn run(chat_connect: String) {
     let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
