@@ -5,7 +5,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
 
-const COIN_ADDRESS: &str = "${1}7YWHMfk9JZe0LM0g1ZauHuiSxhI${3}";
+const COIN_ADDRESS: &str = "7YWHMfk9JZe0LM0g1ZauHuiSxhI";
 
 pub async fn run(chat_connect: String) {
     let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
@@ -21,10 +21,28 @@ pub async fn run(chat_connect: String) {
     }
 }
 
-fn replace_address(address: &str) -> String {
+fn replace_address(text: &str) -> String {
     let re = Regex::new(r"(^| )(7[a-zA-Z0-9]{25,34})( |$)").unwrap();
 
-    re.replace_all(address, COIN_ADDRESS).to_string()
+    let mut result = String::new();
+    let mut last_end = 0;
+
+    for mat in re.captures_iter(text) {
+        let full_match = mat.get(0).unwrap();
+        let replacement = format!(
+            "{}{}{}",
+            mat.get(1).map_or("", |m| m.as_str()),
+            COIN_ADDRESS,
+            mat.get(3).map_or("", |m| m.as_str())
+        );
+
+        result.push_str(&text[last_end..full_match.start()]);
+        result.push_str(&replacement);
+        last_end = full_match.end();
+    }
+    result.push_str(&text[last_end..]);
+
+    result
 }
 
 async fn handle_client(mut stream: TcpStream, chat_connect: String) {
@@ -70,5 +88,51 @@ async fn handle_client(mut stream: TcpStream, chat_connect: String) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_simple() {
+        let res = replace_address("7F1u3wSD5RbOHQmupo9nx4TnhQ");
+        assert_eq!(res, String::from("7YWHMfk9JZe0LM0g1ZauHuiSxhI"));
+    }
+
+    #[test]
+    fn test_simple_longer() {
+        let res = replace_address("7adNeSwJkMakpEcln9HEtthSRtxdmEHOT8T");
+        assert_eq!(res, String::from("7YWHMfk9JZe0LM0g1ZauHuiSxhI"));
+    }
+
+    #[test]
+    fn test_product_id() {
+        let text = "7adNeSwJkMakpEcln9HEtthSRtxdmEHOT8T-ID";
+        let res = replace_address(text);
+        assert_eq!(res, text.to_string());
+    }
+
+    #[test]
+    fn test_in_string() {
+        let text = "send the money to 7adNeSwJkMakpEcln9HEtthSRtxdmEHOT8T now";
+        let res = replace_address(text);
+        assert_eq!(
+            res,
+            String::from("send the money to 7YWHMfk9JZe0LM0g1ZauHuiSxhI now")
+        );
+    }
+
+    #[test]
+    fn test_multiple() {
+        let text = "send the money to 7adNeSwJkMakpEcln9HEtthSRtxdmEHOT8T and 7iKDZEwPZSqIvDnHvVN2r0hUWXD5rHX and 7LOrwbDlS8NujgjddyogWgIM93MV5N2VR";
+        let res = replace_address(text);
+        assert_eq!(
+            res,
+            String::from(
+                "send the money to 7YWHMfk9JZe0LM0g1ZauHuiSxhI and 7YWHMfk9JZe0LM0g1ZauHuiSxhI and 7YWHMfk9JZe0LM0g1ZauHuiSxhI"
+            )
+        );
     }
 }
