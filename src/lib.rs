@@ -22,25 +22,27 @@ pub async fn run(chat_connect: String) {
 }
 
 fn replace_address(text: &str) -> String {
-    let re = Regex::new(r"(^| )(7[a-zA-Z0-9]{25,34})( |$)").unwrap();
+    let re = Regex::new(r"(7[a-zA-Z0-9]{25,34})").unwrap();
 
     let mut result = String::new();
-    let mut last_end = 0;
+    let mut last_match_end = 0;
 
-    for mat in re.captures_iter(text) {
-        let full_match = mat.get(0).unwrap();
-        let replacement = format!(
-            "{}{}{}",
-            mat.get(1).map_or("", |m| m.as_str()),
-            COIN_ADDRESS,
-            mat.get(3).map_or("", |m| m.as_str())
-        );
-
-        result.push_str(&text[last_end..full_match.start()]);
-        result.push_str(&replacement);
-        last_end = full_match.end();
+    // loop through the matches, only replace if the match starts the string or is
+    // following a space and ends the string or is followed by a space
+    for cap in re.captures_iter(text) {
+        println!("Capture: {:?}", cap);
+        let m = cap.get(0).unwrap();
+        if (m.start() == 0 || text.chars().nth(m.start() - 1).unwrap() == ' ')
+            && (m.end() == text.len() || text.chars().nth(m.end()).unwrap() == ' ')
+        {
+            // insert any text before the match, then the replacement
+            result.push_str(&text[last_match_end..m.start()]);
+            result.push_str(COIN_ADDRESS);
+            last_match_end = m.end();
+        }
     }
-    result.push_str(&text[last_end..]);
+    // Add any remaining text
+    result.push_str(&text[last_match_end..]);
 
     result
 }
@@ -126,12 +128,12 @@ mod tests {
 
     #[test]
     fn test_multiple() {
-        let text = "send the money to 7adNeSwJkMakpEcln9HEtthSRtxdmEHOT8T and 7iKDZEwPZSqIvDnHvVN2r0hUWXD5rHX and 7LOrwbDlS8NujgjddyogWgIM93MV5N2VR";
+        let text = "Please pay the ticket price of 15 Boguscoins to one of these addresses: 7iKDZEwPZSqIvDnHvVN2r0hUWXD5rHX 7adNeSwJkMakpEcln9HEtthSRtxdmEHOT8T 7LOrwbDlS8NujgjddyogWgIM93MV5N2VR";
         let res = replace_address(text);
         assert_eq!(
             res,
             String::from(
-                "send the money to 7YWHMfk9JZe0LM0g1ZauHuiSxhI and 7YWHMfk9JZe0LM0g1ZauHuiSxhI and 7YWHMfk9JZe0LM0g1ZauHuiSxhI"
+                "Please pay the ticket price of 15 Boguscoins to one of these addresses: 7YWHMfk9JZe0LM0g1ZauHuiSxhI 7YWHMfk9JZe0LM0g1ZauHuiSxhI 7YWHMfk9JZe0LM0g1ZauHuiSxhI"
             )
         );
     }
