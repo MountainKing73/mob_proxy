@@ -351,6 +351,7 @@ dependencies = [
 name = "mob_proxy"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "clap",
  "env_logger",
  "futures",

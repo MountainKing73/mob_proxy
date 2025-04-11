@@ -1,11 +1,44 @@
+use bytes::{Buf, BytesMut};
 use futures::SinkExt;
 use log::{debug, error, info};
 use regex::Regex;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_stream::StreamExt;
-use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
+use tokio_util::codec::{Decoder, FramedRead, FramedWrite, LinesCodec};
 
 const COIN_ADDRESS: &str = "7YWHMfk9JZe0LM0g1ZauHuiSxhI";
+
+struct FullLineDecoder {}
+
+impl Decoder for FullLineDecoder {
+    type Item = String;
+    type Error = std::io::Error;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        let mut line_end = 0;
+        for i in 0..src.len() {
+            if src[i] == b'\n' {
+                line_end = i;
+                break;
+            }
+        }
+
+        if line_end == 0 {
+            return Ok(None);
+        }
+
+        let val = String::from_utf8(src[0..line_end].to_vec()).unwrap();
+
+        src.advance(line_end);
+
+        Ok(Some(val))
+    }
+
+    fn decode_eof(&mut self, _src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        // Simply discard the remainder
+        Ok(None)
+    }
+}
 
 pub async fn run(chat_connect: String) {
     let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
@@ -30,7 +63,6 @@ fn replace_address(text: &str) -> String {
     // loop through the matches, only replace if the match starts the string or is
     // following a space and ends the string or is followed by a space
     for cap in re.captures_iter(text) {
-        println!("Capture: {:?}", cap);
         let m = cap.get(0).unwrap();
         if (m.start() == 0 || text.chars().nth(m.start() - 1).unwrap() == ' ')
             && (m.end() == text.len() || text.chars().nth(m.end()).unwrap() == ' ')
@@ -52,7 +84,7 @@ async fn handle_client(mut stream: TcpStream, chat_connect: String) {
     let (read, write) = stream.split();
     let encoder = LinesCodec::new();
     let mut writer = FramedWrite::new(write, encoder);
-    let decoder = LinesCodec::new();
+    let decoder = FullLineDecoder {};
     let mut reader = FramedRead::new(read, decoder);
 
     // Connect to the chat server, split the stream and create framed reader and writer
@@ -72,7 +104,7 @@ async fn handle_client(mut stream: TcpStream, chat_connect: String) {
                    let _ = chat_writer.send(&replace_address(&msg)).await;
                 }
                 Some(Err(e)) => {
-                    error!("Error readeing message {}", e);
+                    error!("Error reading message {}", e);
                 }
                 None => {
                     break;
@@ -83,7 +115,7 @@ async fn handle_client(mut stream: TcpStream, chat_connect: String) {
                    let _ = writer.send(&replace_address(&msg)).await;
                 }
                 Some(Err(e)) => {
-                    error!("Error readeing message {}", e);
+                    error!("Error reading message {}", e);
                 }
                 None => {
                     break;
