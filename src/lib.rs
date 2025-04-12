@@ -15,6 +15,7 @@ impl Decoder for FullLineDecoder {
     type Error = std::io::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        debug!("Starting decode src: {:?}", src);
         let mut line_end = 0;
         for i in 0..src.len() {
             if src[i] == b'\n' {
@@ -29,7 +30,10 @@ impl Decoder for FullLineDecoder {
 
         let val = String::from_utf8(src[0..line_end].to_vec()).unwrap();
 
-        src.advance(line_end);
+        // Add the one to skip the new line
+        src.advance(line_end + 1);
+
+        debug!("Returning from decode value: {}", val);
 
         Ok(Some(val))
     }
@@ -55,6 +59,7 @@ pub async fn run(chat_connect: String) {
 }
 
 fn replace_address(text: &str) -> String {
+    println!("Doing replace input: {}", text);
     let re = Regex::new(r"(7[a-zA-Z0-9]{25,34})").unwrap();
 
     let mut result = String::new();
@@ -75,6 +80,7 @@ fn replace_address(text: &str) -> String {
     }
     // Add any remaining text
     result.push_str(&text[last_match_end..]);
+    println!("Completed replace input: {}", result);
 
     result
 }
